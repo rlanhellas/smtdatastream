@@ -50,8 +50,8 @@ public class RemoveStringFieldNameTest {
     props.put("string.to.remove", "/");
     xform.configure(props);
 
-    final Schema simpleStructSchema = SchemaBuilder.struct().name("name").version(1).doc("doc").field("/magic", Schema.OPTIONAL_INT64_SCHEMA).build();
-    final Struct simpleStruct = new Struct(simpleStructSchema).put("/magic", 42L);
+    final Schema simpleStructSchema = SchemaBuilder.struct().name("name").version(1).doc("doc").field("/AFS/MSOSR", Schema.OPTIONAL_INT64_SCHEMA).build();
+    final Struct simpleStruct = new Struct(simpleStructSchema).put("/AFS/MSOSR", 42L);
 
     final SourceRecord record = new SourceRecord(null, null, "test", 0, simpleStructSchema, simpleStruct);
     final SourceRecord transformedRecord = xform.apply(record);
@@ -60,9 +60,9 @@ public class RemoveStringFieldNameTest {
     assertEquals(simpleStructSchema.version(), transformedRecord.valueSchema().version());
     assertEquals(simpleStructSchema.doc(), transformedRecord.valueSchema().doc());
 
-    assertEquals(transformedRecord.valueSchema().field("magic").index(),0);
-    assertEquals(Schema.OPTIONAL_INT64_SCHEMA, transformedRecord.valueSchema().field("magic").schema());
-    assertEquals(42L, ((Struct) transformedRecord.value()).getInt64("magic").longValue());
+    assertEquals(transformedRecord.valueSchema().field("AFSMSOSR").index(),0);
+    assertEquals(Schema.OPTIONAL_INT64_SCHEMA, transformedRecord.valueSchema().field("AFSMSOSR").schema());
+    assertEquals(42L, ((Struct) transformedRecord.value()).getInt64("AFSMSOSR").longValue());
 
     // Exercise caching
     final SourceRecord transformedRecord2 = xform.apply(
