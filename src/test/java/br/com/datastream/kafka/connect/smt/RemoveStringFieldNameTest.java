@@ -17,6 +17,7 @@
 package br.com.datastream.kafka.connect.smt;
 
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
@@ -82,5 +83,18 @@ public class RemoveStringFieldNameTest {
 
     final SourceRecord transformedRecord = xform.apply(record);
     assertEquals(42L, ((Map) transformedRecord.value()).get("magic"));
+  }
+
+  @Test
+  public void schemaStringRemoveBackslash() {
+    Map<String,Object> props = new HashMap<>();
+    props.put("string.to.remove", "/");
+    xform.configure(props);
+
+    final SourceRecord record = new SourceRecord(null, null, "test", 0,
+            Schema.STRING_SCHEMA, "/magic");
+
+    final SourceRecord transformedRecord = xform.apply(record);
+    assertEquals("magic", transformedRecord.value());
   }
 }

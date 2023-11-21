@@ -21,14 +21,14 @@ import org.apache.kafka.common.cache.LRUCache;
 import org.apache.kafka.common.cache.SynchronizedCache;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.connect.connector.ConnectRecord;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.data.*;
 
+import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.transforms.Transformation;
 import org.apache.kafka.connect.transforms.util.SchemaUtil;
 import org.apache.kafka.connect.transforms.util.SimpleConfig;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,6 +39,7 @@ import static org.apache.kafka.connect.transforms.util.Requirements.requireStruc
 
 public abstract class RemoveStringFieldName<R extends ConnectRecord<R>> implements Transformation<R> {
 
+  private static final Logger log = LoggerFactory.getLogger(RemoveStringFieldName.class);
 
   public static final String OVERVIEW_DOC =
     "Remove string from json fields";
@@ -70,6 +71,8 @@ public abstract class RemoveStringFieldName<R extends ConnectRecord<R>> implemen
   public R apply(R record) {
     if (operatingSchema(record) == null) {
       return applySchemaless(record);
+    } else if (operatingSchema(record) == Schema.STRING_SCHEMA) {
+      return applyWithStringSchema(record);
     } else {
       return applyWithSchema(record);
     }
@@ -102,6 +105,17 @@ public abstract class RemoveStringFieldName<R extends ConnectRecord<R>> implemen
     }
 
     return newRecord(record, updatedSchema, updatedValue);
+  }
+
+  private R applyWithStringSchema(R record) {
+    if (record != null && record.value() != null) {
+      final String replacedValue = record.value().toString().replace(stringToRemove, "");
+      SchemaAndValue newSchema = new SchemaAndValue(record.valueSchema(), replacedValue);
+      return newRecord(record, newSchema.schema(), newSchema.value());
+    }else{
+      throw new DataException("record and record.value() should not be null");
+    }
+
   }
 
   @Override
