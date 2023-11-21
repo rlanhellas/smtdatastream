@@ -1,8 +1,10 @@
-Kafka Connect SMT to remove Backslash from field names on json
+## Kafka Connect SMT made by DataStream
 
+### RemoveBackslash
+Goal: Remove all backslash (\) from field names
 
 Example on how to add to your connector:
 ```
-transforms=removebackslash
-transforms.removebackslash.type=br.com.datastream.kafka.connect.smt.RemoveBackslash$Value
+transforms=removestring
+transforms.removestring.type=br.com.datastream.kafka.connect.smt.RemoveStringFieldName$Value
 ```

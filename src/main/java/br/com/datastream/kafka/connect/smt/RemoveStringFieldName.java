@@ -28,6 +28,7 @@ import org.apache.kafka.connect.data.Struct;
 
 import org.apache.kafka.connect.transforms.Transformation;
 import org.apache.kafka.connect.transforms.util.SchemaUtil;
+import org.apache.kafka.connect.transforms.util.SimpleConfig;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,21 +37,31 @@ import java.util.UUID;
 import static org.apache.kafka.connect.transforms.util.Requirements.requireMap;
 import static org.apache.kafka.connect.transforms.util.Requirements.requireStruct;
 
-public abstract class RemoveBackslash<R extends ConnectRecord<R>> implements Transformation<R> {
+public abstract class RemoveStringFieldName<R extends ConnectRecord<R>> implements Transformation<R> {
 
 
-  public static final String BACKSLASH = "\\";
   public static final String OVERVIEW_DOC =
-    "Remove any backslash (\\) from json fields";
+    "Remove string from json fields";
 
-  public static final ConfigDef CONFIG_DEF = new ConfigDef();
 
-  private static final String PURPOSE = "Remove any backslash (\\) from json fields";
+  private interface ConfigName {
+    String STRING_TO_REMOVE = "string.to.remove";
+  }
+
+  public static final ConfigDef CONFIG_DEF = new ConfigDef().define(ConfigName.STRING_TO_REMOVE, ConfigDef.Type.STRING, "", ConfigDef.Importance.HIGH,
+          "String to be removed from field name");
+
+  private static final String PURPOSE = "Remove string from json fields";
 
   private Cache<Schema, Schema> schemaUpdateCache;
 
+  private String stringToRemove;
+
   @Override
   public void configure(Map<String, ?> props) {
+    final SimpleConfig config = new SimpleConfig(CONFIG_DEF, props);
+    stringToRemove = config.getString(ConfigName.STRING_TO_REMOVE);
+
     schemaUpdateCache = new SynchronizedCache<>(new LRUCache<Schema, Schema>(16));
   }
 
@@ -69,7 +80,7 @@ public abstract class RemoveBackslash<R extends ConnectRecord<R>> implements Tra
 
     final Map<String, Object> updatedValue = new HashMap<>();
     for (Map.Entry<String, Object> entry : value.entrySet()) {
-      updatedValue.put(entry.getKey().replace(BACKSLASH,""),entry.getValue());
+      updatedValue.put(entry.getKey().replace(stringToRemove,""),entry.getValue());
     }
 
     return newRecord(record, null, updatedValue);
@@ -87,7 +98,7 @@ public abstract class RemoveBackslash<R extends ConnectRecord<R>> implements Tra
     final Struct updatedValue = new Struct(updatedSchema);
 
     for (Field field : value.schema().fields()) {
-      updatedValue.put(field.name().replace(BACKSLASH,""), value.get(field));
+      updatedValue.put(field.name().replace(stringToRemove,""), value.get(field));
     }
 
     return newRecord(record, updatedSchema, updatedValue);
@@ -111,7 +122,7 @@ public abstract class RemoveBackslash<R extends ConnectRecord<R>> implements Tra
     final SchemaBuilder builder = SchemaUtil.copySchemaBasics(schema, SchemaBuilder.struct());
 
     for (Field field: schema.fields()) {
-      builder.field(field.name().replace(BACKSLASH, ""), field.schema());
+      builder.field(field.name().replace(stringToRemove, ""), field.schema());
     }
 
     return builder.build();
@@ -123,7 +134,7 @@ public abstract class RemoveBackslash<R extends ConnectRecord<R>> implements Tra
 
   protected abstract R newRecord(R record, Schema updatedSchema, Object updatedValue);
 
-  public static class Key<R extends ConnectRecord<R>> extends RemoveBackslash<R> {
+  public static class Key<R extends ConnectRecord<R>> extends RemoveStringFieldName<R> {
 
     @Override
     protected Schema operatingSchema(R record) {
@@ -142,7 +153,7 @@ public abstract class RemoveBackslash<R extends ConnectRecord<R>> implements Tra
 
   }
 
-  public static class Value<R extends ConnectRecord<R>> extends RemoveBackslash<R> {
+  public static class Value<R extends ConnectRecord<R>> extends RemoveStringFieldName<R> {
 
     @Override
     protected Schema operatingSchema(R record) {

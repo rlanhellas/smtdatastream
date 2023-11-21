@@ -25,13 +25,14 @@ import org.junit.After;
 import org.junit.Test;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.Assert.*;
 
-public class RemoveBackslashTest {
+public class RemoveStringFieldNameTest {
 
-  private RemoveBackslash<SourceRecord> xform = new RemoveBackslash.Value<>();
+  private RemoveStringFieldName<SourceRecord> xform = new RemoveStringFieldName.Value<>();
 
   @After
   public void tearDown() throws Exception {
@@ -44,11 +45,13 @@ public class RemoveBackslashTest {
   }
 
   @Test
-  public void removeBackslashFromSchema() {
-    xform.configure(null);
+  public void removeStringFromFieldNameSchema() {
+    Map<String,Object> props = new HashMap<>();
+    props.put("string.to.remove", "/");
+    xform.configure(props);
 
-    final Schema simpleStructSchema = SchemaBuilder.struct().name("name").version(1).doc("doc").field("\\mag\\ic", Schema.OPTIONAL_INT64_SCHEMA).build();
-    final Struct simpleStruct = new Struct(simpleStructSchema).put("\\mag\\ic", 42L);
+    final Schema simpleStructSchema = SchemaBuilder.struct().name("name").version(1).doc("doc").field("/magic", Schema.OPTIONAL_INT64_SCHEMA).build();
+    final Struct simpleStruct = new Struct(simpleStructSchema).put("/magic", 42L);
 
     final SourceRecord record = new SourceRecord(null, null, "test", 0, simpleStructSchema, simpleStruct);
     final SourceRecord transformedRecord = xform.apply(record);
@@ -70,10 +73,12 @@ public class RemoveBackslashTest {
 
   @Test
   public void schemalessRemoveBackslash() {
-    xform.configure(null);
+    Map<String,Object> props = new HashMap<>();
+    props.put("string.to.remove", "/");
+    xform.configure(props);
 
     final SourceRecord record = new SourceRecord(null, null, "test", 0,
-      null, Collections.singletonMap("\\magic", 42L));
+      null, Collections.singletonMap("/magic", 42L));
 
     final SourceRecord transformedRecord = xform.apply(record);
     assertEquals(42L, ((Map) transformedRecord.value()).get("magic"));
