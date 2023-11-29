@@ -51,25 +51,35 @@ public class RemoveStringFieldNameTest {
     props.put("string.to.remove", "/");
     xform.configure(props);
 
-    final Schema simpleStructSchema = SchemaBuilder.struct().name("name").version(1).doc("doc").field("/AFS/MSOSR", Schema.OPTIONAL_INT64_SCHEMA).build();
-    final Struct simpleStruct = new Struct(simpleStructSchema).put("/AFS/MSOSR", 42L);
 
-    final SourceRecord record = new SourceRecord(null, null, "test", 0, simpleStructSchema, simpleStruct);
+    Struct innerStructl2 = new Struct(SchemaBuilder.struct()
+            .field("inner/Field1l2", Schema.STRING_SCHEMA)
+            .build());
+
+    Struct innerStruct = new Struct(SchemaBuilder.struct()
+            .field("inner/Field1", Schema.STRING_SCHEMA)
+            .field("//innerField2", Schema.INT32_SCHEMA)
+            .field("innerField3", innerStructl2.schema())
+            .build());
+
+    Struct originalStruct = new Struct(SchemaBuilder.struct()
+            .field("field1", Schema.STRING_SCHEMA)
+            .field("field2", innerStruct.schema())
+            .build());
+
+    originalStruct.put("field1", "value1");
+    originalStruct.put("field2", innerStruct
+            .put("inner/Field1", "nestedValue1")
+            .put("//innerField2", 42)
+            .put("innerField3", innerStructl2.put("inner/Field1l2", "test"))
+    );
+
+
+    final SourceRecord record = new SourceRecord(null, null, "test", 0, originalStruct.schema(), originalStruct);
     final SourceRecord transformedRecord = xform.apply(record);
 
-    assertEquals(simpleStructSchema.name(), transformedRecord.valueSchema().name());
-    assertEquals(simpleStructSchema.version(), transformedRecord.valueSchema().version());
-    assertEquals(simpleStructSchema.doc(), transformedRecord.valueSchema().doc());
-
-    assertEquals(transformedRecord.valueSchema().field("AFSMSOSR").index(),0);
-    assertEquals(Schema.OPTIONAL_INT64_SCHEMA, transformedRecord.valueSchema().field("AFSMSOSR").schema());
-    assertEquals(42L, ((Struct) transformedRecord.value()).getInt64("AFSMSOSR").longValue());
-
-    // Exercise caching
-    final SourceRecord transformedRecord2 = xform.apply(
-      new SourceRecord(null, null, "test", 1, simpleStructSchema, new Struct(simpleStructSchema)));
-    assertSame(transformedRecord.valueSchema(), transformedRecord2.valueSchema());
-
+    assertEquals(transformedRecord.valueSchema().field("field2").schema().field("innerField1").index(), 0);
+    assertEquals(transformedRecord.valueSchema().field("field2").schema().field("innerField2").index(), 1);
   }
 
   @Test

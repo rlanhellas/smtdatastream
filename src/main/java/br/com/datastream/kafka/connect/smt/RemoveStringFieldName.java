@@ -92,19 +92,9 @@ public abstract class RemoveStringFieldName<R extends ConnectRecord<R>> implemen
   private R applyWithSchema(R record) {
     final Struct value = requireStruct(operatingValue(record), PURPOSE);
 
-    Schema updatedSchema = schemaUpdateCache.get(value.schema());
-    if(updatedSchema == null) {
-      updatedSchema = makeUpdatedSchema(value.schema());
-      schemaUpdateCache.put(value.schema(), updatedSchema);
-    }
+    final Struct newValue = replaceFieldNames(value);
 
-    final Struct updatedValue = new Struct(updatedSchema);
-
-    for (Field field : value.schema().fields()) {
-      updatedValue.put(field.name().replace(stringToRemove,""), value.get(field));
-    }
-
-    return newRecord(record, updatedSchema, updatedValue);
+    return newRecord(record, newValue.schema(), newValue);
   }
 
   private R applyWithStringSchema(R record) {
@@ -132,14 +122,48 @@ public abstract class RemoveStringFieldName<R extends ConnectRecord<R>> implemen
     return UUID.randomUUID().toString();
   }
 
-  private Schema makeUpdatedSchema(Schema schema) {
+  private Schema makeUpdatedSchema(Struct originalStruct, Schema schema) {
     final SchemaBuilder builder = SchemaUtil.copySchemaBasics(schema, SchemaBuilder.struct());
 
     for (Field field: schema.fields()) {
-      builder.field(field.name().replace(stringToRemove, ""), field.schema());
+      if (field.schema().type() == Schema.Type.STRUCT){
+        if (originalStruct.getStruct(field.name()) != null) {
+          builder.field(field.name().replace(stringToRemove, ""), replaceFieldNames(originalStruct.getStruct(field.name()))
+                  .schema());
+        }
+      }else{
+        builder.field(field.name().replace(stringToRemove, ""), field.schema());
+      }
     }
 
     return builder.build();
+  }
+
+  public Struct replaceFieldNames(Struct originalStruct) {
+    Schema originalSchema = originalStruct.schema();
+    Schema newSchema = makeUpdatedSchema(originalStruct, originalSchema);
+
+    Struct newStruct = new Struct(newSchema);
+
+    for (Field field : originalSchema.fields()) {
+      String originalFieldName = field.name();
+      String newFieldName = originalFieldName.replace(stringToRemove, "");
+
+      if (field.schema().type() == Schema.Type.STRUCT) {
+        // Handle nested struct
+        Struct nestedStruct = originalStruct.getStruct(originalFieldName);
+        if (nestedStruct != null) {
+          Struct updatedNestedStruct = replaceFieldNames(nestedStruct);
+          newStruct.put(newFieldName, updatedNestedStruct);
+        }
+      } else {
+        // Non-struct field
+        Object value = originalStruct.get(originalFieldName);
+        newStruct.put(newFieldName, value);
+      }
+    }
+
+    return newStruct;
   }
 
   protected abstract Schema operatingSchema(R record);
